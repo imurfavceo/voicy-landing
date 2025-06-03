@@ -1,13 +1,11 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-inter: var(--font-inter);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -118,5 +116,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    letter-spacing: -0.03em;
+  }
+  
+  .font-inter {
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   }
 }
+
+@import "react-phone-input-2/lib/style.css";

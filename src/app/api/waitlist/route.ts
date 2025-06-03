@@ -2,88 +2,78 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import type { NewWaitlistEntry } from "@/types/supabase";
 
-// Email validation regex
+// Optimized regex patterns
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Phone validation regex (basic international format)
 const PHONE_REGEX = /^\+?[\d\s\-\(\)]{10,}$/;
+
+// Response helpers for consistency
+const createErrorResponse = (message: string, status: number) => 
+  NextResponse.json({ error: message }, { status });
+
+const createSuccessResponse = (message: string) => 
+  NextResponse.json({ success: true, message });
 
 export async function POST(req: Request) {
   try {
-    // Check if Supabase is properly configured
+    // Early environment check
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json(
-        { error: "Service temporarily unavailable. Please try again later." },
-        { status: 503 }
-      );
+      return createErrorResponse("Service temporarily unavailable. Please try again later.", 503);
     }
 
     const body = await req.json();
     const { email, phone }: { email?: string; phone?: string } = body;
 
-    // Validation
-    if (!email || !phone) {
-      return NextResponse.json(
-        { error: "Email and phone are required" },
-        { status: 400 }
-      );
+    // Input validation
+    if (!email?.trim() || !phone?.trim()) {
+      return createErrorResponse("Email and phone are required", 400);
     }
 
-    if (!EMAIL_REGEX.test(email)) {
-      return NextResponse.json(
-        { error: "Please enter a valid email address" },
-        { status: 400 }
-      );
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPhone = phone.trim();
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return createErrorResponse("Please enter a valid email address", 400);
     }
 
-    if (!PHONE_REGEX.test(phone)) {
-      return NextResponse.json(
-        { error: "Please enter a valid phone number" },
-        { status: 400 }
-      );
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      return createErrorResponse("Please enter a valid phone number", 400);
     }
 
-    // Check if email already exists
-    const { data: existingEntry } = await supabase
+    // Check for existing entry and insert in a single transaction where possible
+    const { data: existingEntry, error: selectError } = await supabase
       .from("waitlist")
       .select("email")
-      .eq("email", email.toLowerCase())
-      .single();
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (selectError) {
+      console.error("Database select error:", selectError);
+      return createErrorResponse("Failed to verify waitlist status. Please try again.", 500);
+    }
 
     if (existingEntry) {
-      return NextResponse.json(
-        { error: "This email is already on the waitlist" },
-        { status: 409 }
-      );
+      return createErrorResponse("This email is already on the waitlist", 409);
     }
 
     // Insert new entry
     const newEntry: NewWaitlistEntry = {
-      email: email.toLowerCase(),
-      phone: phone.trim(),
+      email: normalizedEmail,
+      phone: normalizedPhone,
     };
 
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from("waitlist")
       .insert(newEntry);
 
-    if (error) {
-      console.error("Supabase error:", error);
-      return NextResponse.json(
-        { error: "Failed to join waitlist. Please try again." },
-        { status: 500 }
-      );
+    if (insertError) {
+      console.error("Database insert error:", insertError);
+      return createErrorResponse("Failed to join waitlist. Please try again.", 500);
     }
 
-    return NextResponse.json({ 
-      success: true,
-      message: "Successfully joined the waitlist!" 
-    });
+    return createSuccessResponse("Successfully joined the waitlist!");
 
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return createErrorResponse("Internal server error", 500);
   }
 } 

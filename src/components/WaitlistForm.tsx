@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { useState, FormEvent, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import IntlPhoneInput from "@/components/IntlPhoneInput"
 
 interface FormData {
   email: string;
@@ -21,14 +22,21 @@ export default function WaitlistForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
-    // Clear error when user starts typing
+  const handleInputChange = useCallback((field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError(null);
-  };
+  }, [error]);
 
-  async function handleSubmit(e: FormEvent) {
+  const handlePhoneChange = useCallback((value: string) => {
+    setFormData(prev => ({ ...prev, phone: value }));
+    if (error) setError(null);
+  }, [error]);
+
+  const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || !formData.email.trim() || !formData.phone.trim()) return;
+    
     setLoading(true);
     setError(null);
 
@@ -53,20 +61,26 @@ export default function WaitlistForm() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [formData, loading]);
+
+  const resetForm = useCallback(() => {
+    setSuccess(false);
+    setError(null);
+  }, []);
 
   if (success) {
     return (
-      <div className="text-center space-y-2">
-        <p className="text-lg">🎉 Welcome to the waitlist!</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="text-center space-y-3 p-4 sm:p-0">
+        <div className="text-4xl sm:text-5xl mb-2">🎉</div>
+        <p className="text-base sm:text-lg font-medium text-gray-900">Welcome to the waitlist!</p>
+        <p className="text-sm text-gray-600">
           We&apos;ll notify you as soon as Voicy is ready.
         </p>
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => setSuccess(false)}
-          className="mt-4"
+          onClick={resetForm}
+          className="mt-4 text-xs sm:text-sm"
         >
           Add another email
         </Button>
@@ -74,9 +88,11 @@ export default function WaitlistForm() {
     );
   }
 
+  const isFormValid = formData.email.trim() && formData.phone.trim();
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm">
-      <div className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full" noValidate>
+      <div className="space-y-3">
         <Input
           type="email"
           placeholder="your.email@example.com"
@@ -84,34 +100,35 @@ export default function WaitlistForm() {
           onChange={handleInputChange("email")}
           required
           disabled={loading}
-          className="h-12"
+          className="h-11 sm:h-12 text-sm sm:text-base"
+          aria-label="Email address"
         />
-        <Input
-          type="tel"
-          placeholder="+1 (555) 123-4567"
-          value={formData.phone}
-          onChange={handleInputChange("phone")}
-          required
-          disabled={loading}
-          className="h-12"
+        <IntlPhoneInput 
+          value={formData.phone} 
+          onChange={handlePhoneChange} 
         />
       </div>
       
       <Button 
         type="submit"
-        disabled={loading || !formData.email.trim() || !formData.phone.trim()} 
-        className="w-full h-12"
+        disabled={loading || !isFormValid} 
+        className="w-full h-11 sm:h-12 text-sm sm:text-base font-medium"
+        aria-describedby={error ? "form-error" : undefined}
       >
         {loading ? "Joining..." : "Join the early-access list"}
       </Button>
       
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+        <div 
+          id="form-error"
+          className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200"
+          role="alert"
+        >
           {error}
         </div>
       )}
       
-      <p className="text-xs text-muted-foreground text-center">
+      <p className="text-xs text-gray-500 text-center leading-relaxed">
         We&apos;ll only use your info to notify you about Voicy updates.
       </p>
     </form>
