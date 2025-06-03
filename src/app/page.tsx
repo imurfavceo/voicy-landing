@@ -3,7 +3,7 @@ import WaitlistForm from "@/components/WaitlistForm";
 const features = [
   {
     icon: "🎤",
-    title: "Record Naturall",
+    title: "Record Naturally",
     description: "Speak your thoughts naturally, no need to worry about formatting or structure."
   },
   {
